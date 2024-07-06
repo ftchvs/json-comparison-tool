@@ -1,13 +1,12 @@
-// components/JsonComparisonWithFilter.tsx
-
-import React, { useState, useRef } from 'react';
-import { Alert, AlertDescription } from '../components/ui/alert';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/ui/collapsible';
-import { Loader2, Upload, X } from 'lucide-react';
+import React, { useState, useRef, useCallback } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Loader2, Upload, ChevronDown, ChevronUp } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const JsonComparisonWithFilter: React.FC = () => {
   const [json1, setJson1] = useState('');
@@ -18,10 +17,11 @@ const JsonComparisonWithFilter: React.FC = () => {
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const fileInput1Ref = useRef<HTMLInputElement>(null);
   const fileInput2Ref = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>, setJson: React.Dispatch<React.SetStateAction<string>>) => {
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>, setJson: React.Dispatch<React.SetStateAction<string>>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
       const reader = new FileReader();
@@ -32,46 +32,47 @@ const JsonComparisonWithFilter: React.FC = () => {
       };
       reader.readAsText(file);
     }
-  };
+  }, []);
 
-  const compareJson = async () => {
-  setIsLoading(true);
-  setError('');
-  setDiff([]);
-  setFilteredDiff([]);
-  setSummary('');
+  const compareJson = useCallback(async () => {
+    setIsLoading(true);
+    setError('');
+    setDiff([]);
+    setFilteredDiff([]);
+    setSummary('');
 
-  try {
-    const response = await fetch('/api/compare-and-filter', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ json1, json2, filter }),
-    });
+    try {
+      const response = await fetch('/api/compare-and-filter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ json1, json2, filter }),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setDiff(data.diff);
+      setFilteredDiff(data.filteredDiff || []);
+      setSummary(data.summary);
+      setIsOpen(true);
+    } catch (error: unknown) {
+      console.error('There was a problem with the fetch operation:', error);
+      if (error instanceof Error) {
+        setError('An error occurred while communicating with the server: ' + error.message);
+      } else {
+        setError('An unknown error occurred while communicating with the server.');
+      }
+    } finally {
+      setIsLoading(false);
     }
+  }, [json1, json2, filter]);
 
-    const data = await response.json();
-    setDiff(data.diff);
-    setFilteredDiff(data.filteredDiff || []);
-    setSummary(data.summary);
-  } catch (error: unknown) {
-    console.error('There was a problem with the fetch operation:', error);
-    if (error instanceof Error) {
-      setError('An error occurred while communicating with the server: ' + error.message);
-    } else {
-      setError('An unknown error occurred while communicating with the server.');
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-  const renderJsonInput = (value: string, setValue: React.Dispatch<React.SetStateAction<string>>, inputRef: React.RefObject<HTMLInputElement>) => (
+  const renderJsonInput = useCallback((value: string, setValue: React.Dispatch<React.SetStateAction<string>>, inputRef: React.RefObject<HTMLInputElement>) => (
     <div className="space-y-2">
       <textarea
         className="w-full h-64 p-2 border rounded font-mono text-sm"
@@ -92,9 +93,9 @@ const JsonComparisonWithFilter: React.FC = () => {
         />
       </div>
     </div>
-  );
+  ), [handleFileChange]);
 
-  const renderDiff = (diffData: string[]) => {
+  const renderDiff = useCallback((diffData: string[]) => {
     const leftLines: React.ReactNode[] = [];
     const rightLines: React.ReactNode[] = [];
   
@@ -113,20 +114,67 @@ const JsonComparisonWithFilter: React.FC = () => {
   
     return (
       <div className="grid grid-cols-2 gap-4 font-mono text-sm">
-        <div className="border rounded p-2 overflow-x-auto">
+        <ScrollArea className="h-[400px] border rounded p-2">
           {leftLines}
-        </div>
-        <div className="border rounded p-2 overflow-x-auto">
+        </ScrollArea>
+        <ScrollArea className="h-[400px] border rounded p-2">
           {rightLines}
-        </div>
+        </ScrollArea>
       </div>
     );
+  }, []);
+
+  const renderNestedTable = (data: any, depth = 0): JSX.Element => {
+    if (typeof data !== 'object' || data === null) {
+      return <span className="font-mono">{JSON.stringify(data)}</span>;
+    }
+
+    return (
+      <Table className={depth > 0 ? 'border-t border-l border-r' : ''}>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-1/3">Key</TableHead>
+            <TableHead>Value</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Object.entries(data).map(([key, value]) => (
+            <TableRow key={key}>
+              <TableCell className="font-medium">{key}</TableCell>
+              <TableCell>
+                {typeof value === 'object' && value !== null ? (
+                  renderNestedTable(value, depth + 1)
+                ) : (
+                  <span className="font-mono">{JSON.stringify(value)}</span>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    );
+  };
+
+  const renderAttributeTable = (jsonData: string) => {
+    if (!jsonData) return null;
+  
+    try {
+      const data = JSON.parse(jsonData);
+      return (
+        <ScrollArea className="h-[400px]">
+          {renderNestedTable(data)}
+        </ScrollArea>
+      );
+    } catch (error) {
+      console.error('Error parsing JSON:', error);
+      return <p>Error parsing JSON data</p>;
+    }
   };
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
       <h1 className="text-3xl font-bold mb-6 text-center">JSON Comparison and Filter Tool</h1>
-      <div className="grid grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <Card>
           <CardHeader>
             <CardTitle>JSON 1</CardTitle>
@@ -189,31 +237,52 @@ const JsonComparisonWithFilter: React.FC = () => {
           </CardContent>
         </Card>
       )}
-     {(diff.length > 0 || (filter && filteredDiff && filteredDiff.length > 0)) && (
-  <Collapsible>
-    <CollapsibleTrigger asChild>
-      <Button variant="outline" className="mb-2">Toggle Detailed Diff</Button>
-    </CollapsibleTrigger>
-    <CollapsibleContent>
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {filter && filteredDiff && filteredDiff.length > 0
-              ? `Filtered Differences (${filter})`
-              : 'Detailed Differences'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {filter && filteredDiff && filteredDiff.length > 0
-            ? renderDiff(filteredDiff)
-            : diff.length > 0
-              ? renderDiff(diff)
-              : <p>No differences found.</p>}
-        </CardContent>
-      </Card>
-    </CollapsibleContent>
-  </Collapsible>
-)}
+      {(diff.length > 0 || (filter && filteredDiff && filteredDiff.length > 0)) && (
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="mb-2 w-full">
+              {isOpen ? 'Hide' : 'Show'} Detailed Diff
+              {isOpen ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {filter && filteredDiff && filteredDiff.length > 0
+                    ? `Filtered Differences (${filter})`
+                    : 'Detailed Differences'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {filter && filteredDiff && filteredDiff.length > 0
+                  ? renderDiff(filteredDiff)
+                  : diff.length > 0
+                    ? renderDiff(diff)
+                    : <p>No differences found.</p>}
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+      <div className="space-y-6 mb-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>JSON 1 Attributes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {renderAttributeTable(json1)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>JSON 2 Attributes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {renderAttributeTable(json2)}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
