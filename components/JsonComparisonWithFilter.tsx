@@ -14,7 +14,7 @@ const JsonComparisonWithFilter: React.FC = () => {
   const [json2, setJson2] = useState('');
   const [filter, setFilter] = useState('');
   const [diff, setDiff] = useState<string[]>([]);
-  const [filteredResult, setFilteredResult] = useState<any>(null);
+  const [filteredDiff, setFilteredDiff] = useState<string[]>([]);
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -35,36 +35,41 @@ const JsonComparisonWithFilter: React.FC = () => {
   };
 
   const compareJson = async () => {
-    setIsLoading(true);
-    setError('');
-    setDiff([]);
-    setSummary('');
-    setFilteredResult(null);
+  setIsLoading(true);
+  setError('');
+  setDiff([]);
+  setFilteredDiff([]);
+  setSummary('');
 
-    try {
-      const response = await fetch('/api/compare-and-filter', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ json1, json2, filter }),
-      });
+  try {
+    const response = await fetch('/api/compare-and-filter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ json1, json2, filter }),
+    });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      setDiff(data.diff);
-      setSummary(data.summary);
-      setFilteredResult(data.filteredResult);
-    } catch (error) {
-      console.error('There was a problem with the fetch operation:', error);
-      setError('An error occurred while communicating with the server: ' + error.message);
-    } finally {
-      setIsLoading(false);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
-  };
+
+    const data = await response.json();
+    setDiff(data.diff);
+    setFilteredDiff(data.filteredDiff || []);
+    setSummary(data.summary);
+  } catch (error: unknown) {
+    console.error('There was a problem with the fetch operation:', error);
+    if (error instanceof Error) {
+      setError('An error occurred while communicating with the server: ' + error.message);
+    } else {
+      setError('An unknown error occurred while communicating with the server.');
+    }
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const renderJsonInput = (value: string, setValue: React.Dispatch<React.SetStateAction<string>>, inputRef: React.RefObject<HTMLInputElement>) => (
     <div className="space-y-2">
@@ -89,22 +94,30 @@ const JsonComparisonWithFilter: React.FC = () => {
     </div>
   );
 
-  const renderDiff = () => {
+  const renderDiff = (diffData: string[]) => {
+    const leftLines: React.ReactNode[] = [];
+    const rightLines: React.ReactNode[] = [];
+  
+    diffData.forEach((line, index) => {
+      if (line.startsWith('+')) {
+        leftLines.push(<div key={`left-${index}`} className="invisible">&nbsp;</div>);
+        rightLines.push(<div key={`right-${index}`} className="bg-green-100 text-green-800">{line}</div>);
+      } else if (line.startsWith('-')) {
+        leftLines.push(<div key={`left-${index}`} className="bg-red-100 text-red-800">{line}</div>);
+        rightLines.push(<div key={`right-${index}`} className="invisible">&nbsp;</div>);
+      } else {
+        leftLines.push(<div key={`left-${index}`}>{line}</div>);
+        rightLines.push(<div key={`right-${index}`}>{line}</div>);
+      }
+    });
+  
     return (
       <div className="grid grid-cols-2 gap-4 font-mono text-sm">
         <div className="border rounded p-2 overflow-x-auto">
-          {diff.map((line, index) => (
-            <div key={`left-${index}`} className={line.startsWith('-') ? 'bg-red-100 text-red-800' : ''}>
-              {line.startsWith('-') ? line.slice(1) : line}
-            </div>
-          ))}
+          {leftLines}
         </div>
         <div className="border rounded p-2 overflow-x-auto">
-          {diff.map((line, index) => (
-            <div key={`right-${index}`} className={line.startsWith('+') ? 'bg-green-100 text-green-800' : ''}>
-              {line.startsWith('+') ? line.slice(1) : line}
-            </div>
-          ))}
+          {rightLines}
         </div>
       </div>
     );
@@ -176,35 +189,31 @@ const JsonComparisonWithFilter: React.FC = () => {
           </CardContent>
         </Card>
       )}
-      {filteredResult && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Filtered Result</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="bg-gray-100 p-4 rounded overflow-x-auto">
-              {JSON.stringify(filteredResult, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
-      )}
-      {diff.length > 0 && (
-        <Collapsible>
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" className="mb-2">Toggle Detailed Diff</Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <Card>
-              <CardHeader>
-                <CardTitle>Detailed Differences</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {renderDiff()}
-              </CardContent>
-            </Card>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
+     {(diff.length > 0 || (filter && filteredDiff && filteredDiff.length > 0)) && (
+  <Collapsible>
+    <CollapsibleTrigger asChild>
+      <Button variant="outline" className="mb-2">Toggle Detailed Diff</Button>
+    </CollapsibleTrigger>
+    <CollapsibleContent>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {filter && filteredDiff && filteredDiff.length > 0
+              ? `Filtered Differences (${filter})`
+              : 'Detailed Differences'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {filter && filteredDiff && filteredDiff.length > 0
+            ? renderDiff(filteredDiff)
+            : diff.length > 0
+              ? renderDiff(diff)
+              : <p>No differences found.</p>}
+        </CardContent>
+      </Card>
+    </CollapsibleContent>
+  </Collapsible>
+)}
     </div>
   );
 };
