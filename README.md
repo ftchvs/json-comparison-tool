@@ -42,11 +42,7 @@ This project is a JSON comparison tool built using Next.js. It allows users to c
 
 ## Screenshots
 
-<<<<<<< HEAD
 ![Screenshot of JSON Comparison Tool](./public/screenshot.png)
-=======
-![Screenshot of JSON Comparison Tool](https://github.com/ftchvs/json-comparison-tool/blob/main/public/screenshot.png)
->>>>>>> 2652680ea07283ef7492caf52f36af9e970b6719
 
 ## Technologies Used
 
