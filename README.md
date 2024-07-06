@@ -1,40 +1,92 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# JSON Comparison Tool
+
+This project is a JSON comparison tool built using Next.js. It allows users to compare two JSON objects to identify differences and similarities. The tool provides a user-friendly interface to visualize the comparison results.
+
+## Features
+
+- **JSON Input**: Easily input JSON objects for comparison.
+- **Detailed Comparison**: Highlights differences and similarities between JSON objects.
+- **User-Friendly Interface**: Interactive and easy-to-navigate frontend.
 
 ## Getting Started
 
-First, run the development server:
+1. **Clone the Repository**
+    ```sh
+    git clone https://github.com/ftchvs/json-comparison-tool.git
+    cd json-comparison-tool
+    ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+2. **Install Dependencies**
+    ```sh
+    npm install
+    ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. **Run the Development Server**
+    ```sh
+    npm run dev
+    ```
+    Open [http://localhost:3000](http://localhost:3000) in your browser to see the result.
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+- **components/**: React components used in the project.
+- **lib/**: Library functions for JSON comparison.
+- **pages/**: Next.js pages for routing.
+- **public/**: Static assets.
+- **styles/**: CSS and styling files.
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+## Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+1. Enter the two JSON objects in the provided text areas.
+2. Click on the "Compare" button to see the differences highlighted.
+
+## Screenshots
+
+![Screenshot of JSON Comparison Tool](./public/screenshot.png)
+
+## Technologies Used
+
+- **Next.js**: React framework for server-side rendering.
+- **Tailwind CSS**: Utility-first CSS framework for styling.
+- **TypeScript**: Typed superset of JavaScript.
+
+## Prerequisites
+
+Make sure you have the following installed:
+- Node.js (v14 or later)
+- npm (v6 or later)
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+To learn more about Next.js and its features, visit the [Next.js Documentation](https://nextjs.org/docs).
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Easily deploy this app using the [Vercel Platform](https://vercel.com).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+## Contributing
+
+Contributions are welcome! Please follow these steps to contribute:
+1. Fork the repository.
+2. Create a new branch (`git checkout -b feature-branch`).
+3. Commit your changes (`git commit -m 'Add some feature'`).
+4. Push to the branch (`git push origin feature-branch`).
+5. Open a pull request.
+
+Please make sure to update tests as appropriate.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgements
+
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
+- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+
+---
+
+Feel free to contribute to this project by forking the repository and submitting pull requests. For major changes, please open an issue to discuss what you would like to change.
+
+For more details, visit the [GitHub repository](https://github.com/ftchvs/json-comparison-tool).
