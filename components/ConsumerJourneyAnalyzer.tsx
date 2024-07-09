@@ -1,8 +1,7 @@
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Upload, Loader2, Download, Info, ChevronDown, ChevronRight, Search } from 'lucide-react';
+import { Upload, Loader2, Download, Info, ChevronDown, ChevronRight } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Define interface for our payload data structure
@@ -18,7 +17,6 @@ const ConsumerJourneyAnalyzer: React.FC = () => {
   const [payloads, setPayloads] = useState<Payload[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [columnWidths, setColumnWidths] = useState<number[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -83,14 +81,6 @@ const ConsumerJourneyAnalyzer: React.FC = () => {
     linkElement.click();
   }, [payloads]);
 
-  // Format cell value for display
-  const formatCellValue = (value: any): string => {
-    if (typeof value === 'object') {
-      return JSON.stringify(value).slice(0, 20) + '...';
-    }
-    return String(value).slice(0, 20) + (String(value).length > 20 ? '...' : '');
-  };
-
   // Toggle row expansion
   const toggleRowExpansion = (property: string) => {
     setExpandedRows((prev) => {
@@ -104,21 +94,24 @@ const ConsumerJourneyAnalyzer: React.FC = () => {
     });
   };
 
-  // Filter properties based on search term
-  const filteredProperties = useMemo(() => {
-    const properties = Object.keys(payloads[0]?.properties || {});
-    return properties.filter(prop => 
-      prop.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [payloads, searchTerm]);
+  // Get all unique properties across all payloads
+  const allProperties = useMemo(() => {
+    const propertySet = new Set<string>();
+    payloads.forEach(payload => {
+      Object.keys(payload.properties).forEach(prop => propertySet.add(prop));
+    });
+    return Array.from(propertySet);
+  }, [payloads]);
 
-  // Export filtered data as CSV
+  // Export data as CSV
   const exportCSV = useCallback(() => {
     const headers = ['Property', ...payloads.map((_, index) => `Step ${payloads.length - index}`)];
     const csvContent = [
       headers.join(','),
-      ...filteredProperties.map(property => 
-        [property, ...payloads.map(payload => JSON.stringify(payload.properties[property]))].join(',')
+      ...allProperties.map(property => 
+        [property, ...payloads.map(payload => 
+          JSON.stringify(payload.properties[property] ?? '')
+        )].join(',')
       )
     ].join('\n');
 
@@ -133,7 +126,7 @@ const ConsumerJourneyAnalyzer: React.FC = () => {
       link.click();
       document.body.removeChild(link);
     }
-  }, [payloads, filteredProperties]);
+  }, [payloads, allProperties]);
 
   // Handle start of column resize
   const handleMouseDown = (e: React.MouseEvent, index: number) => {
@@ -199,7 +192,7 @@ const ConsumerJourneyAnalyzer: React.FC = () => {
           </tr>
         </thead>
         <tbody>
-          {filteredProperties.map((property) => (
+          {allProperties.map((property) => (
             <React.Fragment key={property}>
               <tr>
                 <th style={{ width: columnWidths[0], minWidth: columnWidths[0] }} className="sticky left-0 bg-white z-10 p-2 border text-left">
@@ -215,11 +208,15 @@ const ConsumerJourneyAnalyzer: React.FC = () => {
                   return (
                     <td 
                       key={index}
-                      style={{ width: columnWidths[index + 1], minWidth: columnWidths[index + 1] }}
+                      style={{ 
+                        width: columnWidths[index + 1], 
+                        minWidth: columnWidths[index + 1],
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word'
+                      }}
                       className={`p-2 border ${hasChanged ? "bg-yellow-100" : ""}`}
-                      title={JSON.stringify(value)}
                     >
-                      {formatCellValue(value)}
+                      {value !== undefined ? JSON.stringify(value) : ''}
                     </td>
                   );
                 })}
@@ -312,16 +309,6 @@ const ConsumerJourneyAnalyzer: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 flex items-center">
-              <Search className="mr-2 h-4 w-4 text-gray-500" />
-              <Input
-                type="text"
-                placeholder="Search properties..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-sm"
-              />
-            </div>
             {renderJourney()}
           </CardContent>
         </Card>
