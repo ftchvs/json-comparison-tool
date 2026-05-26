@@ -1,92 +1,106 @@
 # JSON Comparison Tool
 
-This project is a JSON comparison tool built using Next.js. It allows users to compare two JSON objects to identify differences and similarities. The tool provides a user-friendly interface to visualize the comparison results.
+A small open-source sample app for comparing JSON payloads in a browser. It is built with Next.js, TypeScript, Tailwind CSS, and a few shadcn/ui-style primitives.
 
-## Features
+Use it as a reference for:
 
-- **JSON Input**: Easily input JSON objects for comparison.
-- **Detailed Comparison**: Highlights differences and similarities between JSON objects.
-- **User-Friendly Interface**: Interactive and easy-to-navigate frontend.
+- Comparing two JSON documents with a server-side API route.
+- Highlighting added and removed JSON values side by side.
+- Filtering the comparison to a nested dot-path such as `customer.tier`.
+- Uploading local `.json` files without storing them.
+
+## Demo Flow
+
+1. Paste JSON into the original and updated input panels, or upload two `.json` files.
+2. Optionally enter a dot-path filter, for example `customer.tier`.
+3. Click **Compare JSON**.
+4. Review the full diff or the filtered diff.
+
+The app ships with sample payloads so it is usable immediately after startup.
+
+## Tech Stack
+
+- [Next.js](https://nextjs.org/) Pages Router
+- [React](https://react.dev/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [jsdiff](https://github.com/kpdecker/jsdiff)
 
 ## Getting Started
 
-1. **Clone the Repository**
-    ```sh
-    git clone https://github.com/ftchvs/json-comparison-tool.git
-    cd json-comparison-tool
-    ```
+```sh
+git clone https://github.com/ftchvs/json-comparison-tool.git
+cd json-comparison-tool
+npm install
+npm run dev
+```
 
-2. **Install Dependencies**
-    ```sh
-    npm install
-    ```
+Open [http://localhost:3000](http://localhost:3000).
 
-3. **Run the Development Server**
-    ```sh
-    npm run dev
-    ```
-    Open [http://localhost:3000](http://localhost:3000) in your browser to see the result.
+## Scripts
+
+```sh
+npm run dev        # Start the local development server
+npm run lint       # Run Next.js linting
+npm run typecheck  # Run TypeScript checks
+npm run build      # Build the production app
+npm run start      # Start the production server after building
+```
 
 ## Project Structure
 
-- **components/**: React components used in the project.
-- **lib/**: Library functions for JSON comparison.
-- **pages/**: Next.js pages for routing.
-- **public/**: Static assets.
-- **styles/**: CSS and styling files.
+```txt
+components/
+  JsonComparisonWithFilter.tsx  # Main comparison UI
+  ui/                           # Local UI primitives
+pages/
+  api/compare-and-filter.ts     # JSON comparison API route
+  api/compare.ts                # Compatibility alias for the comparison route
+  index.tsx                     # Home page
+styles/
+  globals.css                   # Tailwind base styles and design tokens
+```
 
-## Usage
+## API
 
-1. Enter the two JSON objects in the provided text areas.
-2. Click on the "Compare" button to see the differences highlighted.
+`POST /api/compare-and-filter`
 
-## Screenshots
+Request body:
 
-![Screenshot of JSON Comparison Tool](./public/screenshot.png)
+```json
+{
+  "json1": "{\"customer\":{\"tier\":\"standard\"}}",
+  "json2": "{\"customer\":{\"tier\":\"premium\"}}",
+  "filter": "customer.tier"
+}
+```
 
-## Technologies Used
+Response body:
 
-- **Next.js**: React framework for server-side rendering.
-- **Tailwind CSS**: Utility-first CSS framework for styling.
-- **TypeScript**: Typed superset of JavaScript.
+```json
+{
+  "diff": ["-   \"tier\": \"standard\"", "+   \"tier\": \"premium\""],
+  "summary": "Found 2 changed parts between the JSON payloads.",
+  "filteredDiff": ["- \"standard\"", "+ \"premium\""]
+}
+```
 
-## Prerequisites
+## Privacy
 
-Make sure you have the following installed:
-- Node.js (v14 or later)
-- npm (v6 or later)
+The demo compares JSON in a local Next.js API route. Uploaded files are read in the browser and sent as text to the comparison endpoint; the app does not persist payloads.
 
-## Learn More
-
-To learn more about Next.js and its features, visit the [Next.js Documentation](https://nextjs.org/docs).
-
-## Deploy on Vercel
-
-Easily deploy this app using the [Vercel Platform](https://vercel.com).
+Do not paste secrets into a deployed public instance unless you control and trust that deployment.
 
 ## Contributing
 
-Contributions are welcome! Please follow these steps to contribute:
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature-branch`).
-3. Commit your changes (`git commit -m 'Add some feature'`).
-4. Push to the branch (`git push origin feature-branch`).
-5. Open a pull request.
+Contributions are welcome. Please open an issue or pull request with a clear description of the change and run:
 
-Please make sure to update tests as appropriate.
+```sh
+npm run lint
+npm run typecheck
+npm run build
+```
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgements
-
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-- [TypeScript Documentation](https://www.typescriptlang.org/docs/)
-
----
-
-Feel free to contribute to this project by forking the repository and submitting pull requests. For major changes, please open an issue to discuss what you would like to change.
-
-For more details, visit the [GitHub repository](https://github.com/ftchvs/json-comparison-tool).
+MIT. See [LICENSE](LICENSE).
