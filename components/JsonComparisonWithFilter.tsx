@@ -1,38 +1,101 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Loader2, Upload, ChevronDown, ChevronUp } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ChevronDown, ChevronUp, Loader2, RefreshCcw, Upload } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const JsonComparisonWithFilter: React.FC = () => {
-  const [json1, setJson1] = useState('');
-  const [json2, setJson2] = useState('');
-  const [filter, setFilter] = useState('');
+type CompareResponse = {
+  diff: string[];
+  summary: string;
+  filteredDiff?: string[];
+};
+
+const sampleJsonA = JSON.stringify(
+  {
+    orderId: 'ord_1001',
+    customer: {
+      name: 'Avery Stone',
+      tier: 'standard',
+      region: 'west',
+    },
+    items: [
+      { sku: 'desk-lamp', quantity: 1, price: 39.99 },
+      { sku: 'notebook', quantity: 3, price: 8.5 },
+    ],
+    fulfillment: {
+      status: 'processing',
+      carrier: null,
+    },
+  },
+  null,
+  2
+);
+
+const sampleJsonB = JSON.stringify(
+  {
+    orderId: 'ord_1001',
+    customer: {
+      name: 'Avery Stone',
+      tier: 'premium',
+      region: 'west',
+    },
+    items: [
+      { sku: 'desk-lamp', quantity: 2, price: 39.99 },
+      { sku: 'notebook', quantity: 3, price: 8.5 },
+      { sku: 'pen-set', quantity: 1, price: 12 },
+    ],
+    fulfillment: {
+      status: 'shipped',
+      carrier: 'UPS',
+    },
+  },
+  null,
+  2
+);
+
+const JsonComparisonWithFilter = () => {
+  const [json1, setJson1] = useState(sampleJsonA);
+  const [json2, setJson2] = useState(sampleJsonB);
+  const [filter, setFilter] = useState('customer.tier');
   const [diff, setDiff] = useState<string[]>([]);
   const [filteredDiff, setFilteredDiff] = useState<string[]>([]);
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   const fileInput1Ref = useRef<HTMLInputElement>(null);
   const fileInput2Ref = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>, setJson: React.Dispatch<React.SetStateAction<string>>) => {
-    if (event.target.files && event.target.files[0]) {
-      const file = event.target.files[0];
+  const handleFileChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>, setJson: React.Dispatch<React.SetStateAction<string>>) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        return;
+      }
+
       const reader = new FileReader();
-      reader.onload = (e) => {
-        if (e.target && typeof e.target.result === 'string') {
-          setJson(e.target.result);
+      reader.onload = (readerEvent) => {
+        if (typeof readerEvent.target?.result === 'string') {
+          setJson(readerEvent.target.result);
         }
       };
       reader.readAsText(file);
-    }
-  }, []);
+    },
+    []
+  );
+
+  const loadSamplePayloads = () => {
+    setJson1(sampleJsonA);
+    setJson2(sampleJsonB);
+    setFilter('customer.tier');
+    setError('');
+    setDiff([]);
+    setFilteredDiff([]);
+    setSummary('');
+  };
 
   const compareJson = useCallback(async () => {
     setIsLoading(true);
@@ -50,239 +113,169 @@ const JsonComparisonWithFilter: React.FC = () => {
         body: JSON.stringify({ json1, json2, filter }),
       });
 
+      const data = (await response.json()) as CompareResponse | { error: string };
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error('error' in data ? data.error : `Request failed with status ${response.status}`);
       }
 
-      const data = await response.json();
-      setDiff(data.diff);
-      setFilteredDiff(data.filteredDiff || []);
-      setSummary(data.summary);
+      const result = data as CompareResponse;
+      setDiff(result.diff);
+      setFilteredDiff(result.filteredDiff || []);
+      setSummary(result.summary);
       setIsOpen(true);
-    } catch (error: unknown) {
-      console.error('There was a problem with the fetch operation:', error);
-      if (error instanceof Error) {
-        setError('An error occurred while communicating with the server: ' + error.message);
-      } else {
-        setError('An unknown error occurred while communicating with the server.');
-      }
+    } catch (caughtError: unknown) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Unknown comparison error';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
   }, [json1, json2, filter]);
 
-  const renderJsonInput = useCallback((value: string, setValue: React.Dispatch<React.SetStateAction<string>>, inputRef: React.RefObject<HTMLInputElement>) => (
-    <div className="space-y-2">
-      <textarea
-        className="w-full h-64 p-2 border rounded font-mono text-sm"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Paste your JSON here"
-      />
-      <div className="flex items-center space-x-2">
-        <Button onClick={() => inputRef.current?.click()}>
-          <Upload className="mr-2 h-4 w-4" /> Upload JSON File
-        </Button>
-        <input
-          type="file"
-          ref={inputRef}
-          onChange={(e) => handleFileChange(e, setValue)}
-          className="hidden"
-          accept=".json"
+  const renderJsonInput = (
+    label: string,
+    value: string,
+    setValue: React.Dispatch<React.SetStateAction<string>>,
+    inputRef: React.RefObject<HTMLInputElement>
+  ) => (
+    <Card>
+      <CardHeader>
+        <CardTitle>{label}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <textarea
+          className="h-72 w-full resize-y rounded-md border border-slate-200 bg-white p-3 font-mono text-sm leading-6 outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          spellCheck={false}
+          placeholder="Paste JSON here"
         />
-      </div>
-    </div>
-  ), [handleFileChange]);
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>
+            <Upload className="mr-2 h-4 w-4" />
+            Upload JSON
+          </Button>
+          <input
+            type="file"
+            ref={inputRef}
+            onChange={(event) => handleFileChange(event, setValue)}
+            className="hidden"
+            accept="application/json,.json"
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
 
-  const renderDiff = useCallback((diffData: string[]) => {
+  const renderDiff = (diffData: string[]) => {
     const leftLines: React.ReactNode[] = [];
     const rightLines: React.ReactNode[] = [];
-  
+
     diffData.forEach((line, index) => {
       if (line.startsWith('+')) {
-        leftLines.push(<div key={`left-${index}`} className="invisible">&nbsp;</div>);
-        rightLines.push(<div key={`right-${index}`} className="bg-green-100 text-green-800">{line}</div>);
+        leftLines.push(<div key={`left-${index}`} className="min-h-6">&nbsp;</div>);
+        rightLines.push(
+          <div key={`right-${index}`} className="min-h-6 bg-emerald-50 px-2 text-emerald-900">
+            {line}
+          </div>
+        );
       } else if (line.startsWith('-')) {
-        leftLines.push(<div key={`left-${index}`} className="bg-red-100 text-red-800">{line}</div>);
-        rightLines.push(<div key={`right-${index}`} className="invisible">&nbsp;</div>);
+        leftLines.push(
+          <div key={`left-${index}`} className="min-h-6 bg-red-50 px-2 text-red-900">
+            {line}
+          </div>
+        );
+        rightLines.push(<div key={`right-${index}`} className="min-h-6">&nbsp;</div>);
       } else {
         leftLines.push(<div key={`left-${index}`}>{line}</div>);
         rightLines.push(<div key={`right-${index}`}>{line}</div>);
       }
     });
-  
+
     return (
-      <div className="grid grid-cols-2 gap-4 font-mono text-sm">
-        <ScrollArea className="h-[400px] border rounded p-2">
-          {leftLines}
+      <div className="grid grid-cols-1 gap-4 font-mono text-xs md:grid-cols-2">
+        <ScrollArea className="h-[420px] rounded-md border bg-white p-2">
+          <div className="min-w-max whitespace-pre">{leftLines}</div>
         </ScrollArea>
-        <ScrollArea className="h-[400px] border rounded p-2">
-          {rightLines}
+        <ScrollArea className="h-[420px] rounded-md border bg-white p-2">
+          <div className="min-w-max whitespace-pre">{rightLines}</div>
         </ScrollArea>
       </div>
     );
-  }, []);
-
-  const renderNestedTable = (data: any, depth = 0): JSX.Element => {
-    if (typeof data !== 'object' || data === null) {
-      return <span className="font-mono">{JSON.stringify(data)}</span>;
-    }
-
-    return (
-      <Table className={depth > 0 ? 'border-t border-l border-r' : ''}>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-1/3">Key</TableHead>
-            <TableHead>Value</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {Object.entries(data).map(([key, value]) => (
-            <TableRow key={key}>
-              <TableCell className="font-medium">{key}</TableCell>
-              <TableCell>
-                {typeof value === 'object' && value !== null ? (
-                  renderNestedTable(value, depth + 1)
-                ) : (
-                  <span className="font-mono">{JSON.stringify(value)}</span>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    );
   };
 
-  const renderAttributeTable = (jsonData: string) => {
-    if (!jsonData) return null;
-  
-    try {
-      const data = JSON.parse(jsonData);
-      return (
-        <ScrollArea className="h-[400px]">
-          {renderNestedTable(data)}
-        </ScrollArea>
-      );
-    } catch (error) {
-      console.error('Error parsing JSON:', error);
-      return <p>Error parsing JSON data</p>;
-    }
-  };
+  const activeDiff = filter && filteredDiff.length > 0 ? filteredDiff : diff;
+  const activeTitle = filter && filteredDiff.length > 0 ? `Filtered differences: ${filter}` : 'Detailed differences';
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6 text-center">JSON Comparison and Filter Tool</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>JSON 1</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {renderJsonInput(json1, setJson1, fileInput1Ref)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>JSON 2</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {renderJsonInput(json2, setJson2, fileInput2Ref)}
-          </CardContent>
-        </Card>
+    <div className="mx-auto max-w-7xl space-y-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold text-slate-950">JSON Comparison Tool</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Compare two JSON payloads, inspect added and removed values, and optionally narrow the diff to a nested dot-path.
+          </p>
+        </div>
+        <Button type="button" variant="outline" onClick={loadSamplePayloads}>
+          <RefreshCcw className="mr-2 h-4 w-4" />
+          Load sample
+        </Button>
+      </header>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {renderJsonInput('Original JSON', json1, setJson1, fileInput1Ref)}
+        {renderJsonInput('Updated JSON', json2, setJson2, fileInput2Ref)}
       </div>
-      <Card className="mb-6">
+
+      <Card>
         <CardHeader>
-          <CardTitle>Filter (Optional)</CardTitle>
+          <CardTitle>Filter</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
           <Input
             type="text"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Enter attribute to filter (e.g., 'user.name')"
-            className="mb-2"
+            onChange={(event) => setFilter(event.target.value)}
+            placeholder="Optional dot-path, for example customer.tier"
           />
+          <Button type="button" onClick={compareJson} disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Comparing
+              </>
+            ) : (
+              'Compare JSON'
+            )}
+          </Button>
         </CardContent>
       </Card>
-      <div className="flex justify-center mb-6">
-        <Button 
-          onClick={compareJson}
-          disabled={isLoading}
-          className="text-lg px-6 py-3"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Comparing...
-            </>
-          ) : (
-            'Compare JSON'
-          )}
-        </Button>
-      </div>
+
       {error && (
-        <Alert variant="destructive" className="mb-6">
+        <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
       {summary && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="bg-yellow-50 p-4 rounded border border-yellow-200">{summary}</p>
-          </CardContent>
-        </Card>
+        <Alert>
+          <AlertDescription>{summary}</AlertDescription>
+        </Alert>
       )}
-      {(diff.length > 0 || (filter && filteredDiff && filteredDiff.length > 0)) && (
+
+      {activeDiff.length > 0 && (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CollapsibleTrigger asChild>
-            <Button variant="outline" className="mb-2 w-full">
-              {isOpen ? 'Hide' : 'Show'} Detailed Diff
+            <Button type="button" variant="outline" className="w-full justify-between">
+              {activeTitle}
               {isOpen ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
-          <CollapsibleContent>
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {filter && filteredDiff && filteredDiff.length > 0
-                    ? `Filtered Differences (${filter})`
-                    : 'Detailed Differences'}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {filter && filteredDiff && filteredDiff.length > 0
-                  ? renderDiff(filteredDiff)
-                  : diff.length > 0
-                    ? renderDiff(diff)
-                    : <p>No differences found.</p>}
-              </CardContent>
-            </Card>
+          <CollapsibleContent className="pt-3">
+            {renderDiff(activeDiff)}
           </CollapsibleContent>
         </Collapsible>
       )}
-      <div className="space-y-6 mb-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>JSON 1 Attributes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {renderAttributeTable(json1)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>JSON 2 Attributes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {renderAttributeTable(json2)}
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 };
